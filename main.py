@@ -1,26 +1,26 @@
-from fastapi import FastAPI , Request
+import os
+import json
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import gspread
 import pandas as pd
-import ast
 from collections import defaultdict
-import json
 
 app = FastAPI()
 
-
-SERVICE_ACCOUNT_FILE = "D:/Andriod_projects/simpledatateba-3a15f8b92427.json"
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SHEET_ID = "1xsf6NBAzVx_b4zXjyvHIvS37evVkoo-SCZdF6OGWfL8"
 
+credentials_dict = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
+credentials = service_account.Credentials.from_service_account_info(
+    credentials_dict,
+    scopes=["https://www.googleapis.com/auth/spreadsheets"])
 
 class GoogleSheetService:
-    def __init__(self, service_account_file: str, scopes: list, sheet_id: str):
-        self.credentials = service_account.Credentials.from_service_account_file(
-            service_account_file, scopes=scopes
-        )
-        self.service = build("sheets", "v4", credentials=self.credentials)
+    def __init__(self, sheet_id: str):
+        
+        self.service = build("sheets", "v4", credentials=credentials)
         self.sheet_id = sheet_id
 
     def read_data(self, range_: str):
@@ -33,7 +33,8 @@ class GoogleSheetService:
         except Exception as e:
             print(f"Error reading Google Sheet: {e} - main.py:34")
             return []
-
+            
+sheet_service = GoogleSheetService(SHEET_ID)
 
 ############################# SEND to kotlin GET from sheets  ###################################################################################################
 class SheetAnalyzer:
@@ -100,8 +101,6 @@ class SheetAnalyzer:
             "all_employees": all_employees_list
             }
 
-sheet_service = GoogleSheetService(SERVICE_ACCOUNT_FILE, SCOPES, SHEET_ID)
-
 @app.get("/read")
 def read_and_analyze(range: str = "stakeholders!A:Q" ,analysis: str = "basic",startdate: str="",enddate: str = "" , filterby: str = "", filtervalue: str = ""):
 
@@ -137,36 +136,19 @@ class Stakeholder(BaseModel):
 @app.post("/add_stakeholder")
 async def add_stakeholder(data: Stakeholder,request: Request):
     body = await request.json()
-    print("📦 Raw JSON from Kotlin: - main.py:140", body)
-
-    print("📥 Received: - main.py:142", data.dict())
-    post_stakeholder_data(data.dict()) 
+    post_stakeholder_data(data.dict(), creds=credentials) 
     return {"status": "success", "data": data.dict()}
-    # return {"received": body}
-
-
 ################################################ Server #################################################################################################################
 if __name__ == "__main__":
     import uvicorn
-    # uvicorn.run(app, host="127.0.0.1", port=8080)
-    uvicorn.run(app, host="192.168.1.10", port=8000)
-    # uvicorn.run(app, host="0.0.0.0", port=8000)
-# روابط للاختبار
-
-# https://docs.google.com/spreadsheets/d/1xsf6NBAzVx_b4zXjyvHIvS37evVkoo-SCZdF6OGWfL8/edit?usp=sharing
-# http://127.0.0.1:8080/read?range=stakeholders!A:N&analysis=stakeholderwindow
 ############################################## poston_cloud_storage.py ###################################################################################################
-def post_stakeholder_data(stakeholder_data):
+def post_stakeholder_data(stakeholder_data,creds=credentials):
 
-    SERVICE_ACCOUNT_FILE = "D:/Andriod_projects/simpledatateba-3a15f8b92427.json"
-    SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
     SHEET_ID = "1xsf6NBAzVx_b4zXjyvHIvS37evVkoo-SCZdF6OGWfL8"
-    creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     client = gspread.authorize(creds)
     spreadsheet = client.open_by_key(SHEET_ID)
     sheet = spreadsheet.worksheet("stakeholders")
 
-    # إضافة الصف الجديد
     row = [
         stakeholder_data["code"],
         stakeholder_data["name"],
