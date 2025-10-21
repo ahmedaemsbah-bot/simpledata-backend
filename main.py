@@ -7,8 +7,6 @@ import ast
 from collections import defaultdict
 import json
 
-from poston_cloud_storage import post_stakeholder_data
-
 app = FastAPI()
 
 
@@ -33,7 +31,7 @@ class GoogleSheetService:
             values = result.get("values", [])
             return values if values else []
         except Exception as e:
-            print(f"Error reading Google Sheet: {e} - main.py:36")
+            print(f"Error reading Google Sheet: {e} - main.py:34")
             return []
 
 
@@ -139,9 +137,9 @@ class Stakeholder(BaseModel):
 @app.post("/add_stakeholder")
 async def add_stakeholder(data: Stakeholder,request: Request):
     body = await request.json()
-    print("📦 Raw JSON from Kotlin: - main.py:142", body)
+    print("📦 Raw JSON from Kotlin: - main.py:140", body)
 
-    print("📥 Received: - main.py:144", data.dict())
+    print("📥 Received: - main.py:142", data.dict())
     post_stakeholder_data(data.dict()) 
     return {"status": "success", "data": data.dict()}
     # return {"received": body}
@@ -157,3 +155,37 @@ if __name__ == "__main__":
 
 # https://docs.google.com/spreadsheets/d/1xsf6NBAzVx_b4zXjyvHIvS37evVkoo-SCZdF6OGWfL8/edit?usp=sharing
 # http://127.0.0.1:8080/read?range=stakeholders!A:N&analysis=stakeholderwindow
+############################################## poston_cloud_storage.py ###################################################################################################
+def post_stakeholder_data(stakeholder_data):
+
+    SERVICE_ACCOUNT_FILE = "D:/Andriod_projects/simpledatateba-3a15f8b92427.json"
+    SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+    SHEET_ID = "1xsf6NBAzVx_b4zXjyvHIvS37evVkoo-SCZdF6OGWfL8"
+    creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    spreadsheet = client.open_by_key(SHEET_ID)
+    sheet = spreadsheet.worksheet("stakeholders")
+
+    # إضافة الصف الجديد
+    row = [
+        stakeholder_data["code"],
+        stakeholder_data["name"],
+        stakeholder_data["phone"],
+        stakeholder_data["whatsapp"],
+        stakeholder_data["email"],
+        stakeholder_data["activity_type"],
+        stakeholder_data["is_customer"],
+        stakeholder_data["is_supplier"],
+        stakeholder_data["is_employee"],
+        json.dumps(stakeholder_data["customer_classes"], ensure_ascii=False),
+        stakeholder_data["customer_credit_type"],
+        stakeholder_data["customer_credit_limit"],
+        stakeholder_data["customer_responsible_employee"],
+        stakeholder_data["starting_balance"],
+        stakeholder_data["is_active"],
+        stakeholder_data["created_at"],
+        stakeholder_data["updated_at"],
+        
+    ]
+    sheet.append_row(row)
+    print("✅ Added to Google Sheets:  poston_cloud_storage.py:37 - main.py:191", row)
