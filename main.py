@@ -141,6 +141,8 @@ async def add_stakeholder(data: Stakeholder,request: Request):
 ################################################ Server #################################################################################################################
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.environ.get("PORT", 8000))  # Railway يوفر PORT تلقائيًا
+    uvicorn.run(app, host="0.0.0.0", port=port)
 ############################################## poston_cloud_storage.py ###################################################################################################
 def post_stakeholder_data(stakeholder_data,creds=credentials):
 
